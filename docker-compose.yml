@@ -1,0 +1,88 @@
+services:
+
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    volumes:
+      - ./nginx/data:/data
+      - ./nginx/letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
+
+  pihole:
+    image: pihole/pihole:latest
+    restart: unless-stopped
+    environment:
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+      TZ: ${TZ}
+      DNS1: 1.1.1.1
+      DNS2: 9.9.9.9
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8081:80"
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - proxy
+
+  heimdall:
+    image: linuxserver/heimdall:latest
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - ./heimdall/config:/config
+    networks:
+      - proxy
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --cleanup
+    networks:
+      - proxy
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - proxy
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    networks:
+      - proxy
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana:/var/lib/grafana
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: proxy
+    external: true
